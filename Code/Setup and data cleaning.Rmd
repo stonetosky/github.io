@@ -1,0 +1,171 @@
+---
+title: "GOOGLE ANALYSTICS PROFESSIONAL CERTIFICATES_CAPSTONE PROJECT"
+author: "Tom Huang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Capstone Project: Cyclist
+
+### Enviroment setup
+Set up libraries for this project
+```{r libraries setup, message=TRUE, warning=FALSE}
+library(tidyverse)
+library(skimr)
+library(ggplot2)
+library(lubridate)
+library(janitor)
+library(scales) # To use the unit_format function
+library(mapview)
+```
+
+
+### Data preperation
+Import dataset which is ranging from `May 2021` to `April 2022`
+```{r import dataset, message=FALSE, warning=FALSE}
+May2021 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202105-divvy-tripdata/202105-divvy-tripdata.csv')
+
+June2021 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202106-divvy-tripdata/202106-divvy-tripdata.csv')
+
+July2021 <- read_csv('C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202107-divvy-tripdata/202107-divvy-tripdata.csv')
+
+August2021 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202108-divvy-tripdata/202108-divvy-tripdata.csv')
+
+September2021 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202109-divvy-tripdata/202109-divvy-tripdata.csv')
+
+October2021 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202110-divvy-tripdata/202110-divvy-tripdata.csv')
+
+November2021 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202111-divvy-tripdata/202111-divvy-tripdata.csv')
+
+December2021 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202112-divvy-tripdata/202112-divvy-tripdata.csv')
+
+January2022 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202201-divvy-tripdata/202201-divvy-tripdata.csv')
+
+February2022 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202202-divvy-tripdata/202202-divvy-tripdata.csv')
+
+March2022 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202203-divvy-tripdata/202203-divvy-tripdata.csv')
+
+April2022 <- read_csv(file = 'C:/Users/Tom Huang/Desktop/Capstone/Raw Data/202204-divvy-tripdata/202204-divvy-tripdata.csv')
+```
+
+Explore the dataset format and structure
+```{r dataset exploration}
+str(June2021)
+glimpse(June2021)
+```
+
+Statistical evaluation
+```{r statistical evaluation of June 2021}
+skim_without_charts(June2021)
+```
+
+Merge all dataset into tone
+Combine the dataset from May 2021 to April 2022 for further analysis
+```{r Merge dataset}
+year_trip <- bind_rows(May2021, June2021, July2021, August2021, September2021, October2021, November2021, December2021, January2022, February2022, March2022, April2022)
+```
+
+### Data cleaning
+
+#### Check the structure and statistical evaluation
+Structure of the data
+```{r}
+str(year_trip)
+glimpse(year_trip)
+```
+
+Statistical evaluation of the merged data
+```{r statistical evaluation of the merged data}
+skim_without_charts(year_trip)
+summary(year_trip)
+```
+
+Check for duplicates in the merged dataset
+```{r check unique rows}
+nrow(year_trip)
+nrow(distinct(year_trip))
+```
+
+#### Transforming data
+Removing empty rows that have no use of analysis
+
+```{r removing empty rows if there is any, message=FALSE, warning=FALSE}
+year_trip_2 <- year_trip %>%
+  remove_empty(which = c("cols", "rows"))
+```
+
+Creating additional columns that are based on the start time of bike riding. This will help to see whether there are particular riding patterns in specific month, day, or weekdays. 
+```{r Creating additional columns based on start time}
+year_trip_3 <- year_trip_2 %>%
+  mutate(
+    start_hour = hour(started_at),
+    start_day = day(started_at),
+    start_month = month(started_at, label = T, abbr = T),
+    start_year = year(started_at),
+    start_weekday = wday(started_at, label = T, abbr = T),
+    trip_duration = difftime(ended_at, started_at, units = "mins")
+  )
+
+year_trip_3$trip_duration <- round(year_trip_3$trip_duration, 2)
+
+summary(year_trip_3)
+```
+
+Renaming the column names and variable names for ease of reference
+```{r rename coluns}
+year_trip_3 <- year_trip_3 %>%
+  rename(bikes = rideable_type,
+         user_type = member_casual)
+```
+
+Change the user_type and bike type to a factor format because this can be easier for categorization
+```{r reformation of the dataset and factor the format}
+unique(year_trip_3$bikes) # determine what are the unique values of the bike type
+year_trip_3 <- year_trip_3 %>%
+  mutate(
+    bikes = recode(bikes, "electric_bike" = "electric", "classic_bike" = "classic", "docked_bike" = "docked")
+  )
+
+year_trip_3 <- year_trip_3 %>%
+  mutate(
+    bikes = as_factor(bikes), # factor the bike type
+    user_type = as_factor(user_type) # factor the user type
+  )
+
+summary(year_trip_3)
+```
+
+Since the trip duration range from -58 mins to 55944 mins, there must be either typo errors during data entry or bikes not returning to the station properly. In order to have an idea what the distribution may look like of the trip duration. Distribution plot is employed. 
+```{r explore the distribution of trip_duration, warning = FALSE}
+year_trip_3 %>%
+  ggplot(aes(x=trip_duration)) +
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+year_trip_3 %>%
+  filter(trip_duration < 500) %>%
+  ggplot(aes(x=trip_duration, fill = user_type)) +
+  geom_density(alpha=0.3) 
+# alpha is used to illustrate the graph with transparent color.
+```
+
+The distribution is very much skewed to the right. It is worth to check the percentile of the trip duration and see how the data is distributed. 
+```{r check out the percentile of the trip duration distribution}
+quantile(year_trip_3$trip_duration, c(0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99)) 
+# the list indicates the percentile we wish to check from 5% to 99%. 
+```
+
+After investigating the distribution, it is safe to assume that almost all of the people would return the bike on the same day as the 99% percentile stands at 2 hours. In this case, I believe it is rather reasonable to assume that data that exceeds more than a day may occur due to problematic bike return. Therefore, we will filter out a small number of trip duration data.
+```{r filter out unreasonable data occured trip duration}
+year_trip_3 <- year_trip_3 %>%
+  filter(trip_duration >0 & trip_duration < 1440)
+
+skim_without_charts(year_trip_3)
+```
+
+#### Data cleaning review
+After filtering, below is the quick summary of the variables. 
+* The remaining observations are 5,752,713. 
+* Classic bike dominates with classic - 3,199,735, electric - 2,263,000, docked - 289,978.
+* Annual member accounts for more than 50% of the users during this period, member - 3,220,405, casual - 2,532,308 
+* In terms of the weekday, weekend experiences the most usage. Sat: 1,000,337, Sun: 864,000
+* Throughout the year, the data sees a spike in bike usage during the summer holiday. Jul: 821,717, Aug: 803,730, Sep: 755,625
