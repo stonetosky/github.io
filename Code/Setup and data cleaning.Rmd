@@ -163,7 +163,7 @@ skim_without_charts(year_trip_3)
 ```
 
 #### Data cleaning review
-After filtering, below is the quick summary of the variables. 
+After filtering, here is the quick summary of the variables. 
 * The remaining observations are 5,752,713. 
 * Classic bike dominates with classic - 3,199,735, electric - 2,263,000, docked - 289,978.
 * Annual member accounts for more than 50% of the users during this period, member - 3,220,405, casual - 2,532,308 
