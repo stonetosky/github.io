@@ -55,26 +55,45 @@ Combine the dataset from May 2021 to April 2022 for further analysis
 year_trip <- bind_rows(May2021, June2021, July2021, August2021, September2021, October2021, November2021, December2021, January2022, February2022, March2022, April2022)
 ```
 
-### Data cleaning
+### Data Cleaning
 
 #### Check the structure and statistical evaluation
 Structure of the data
-```{r}
+```{r explore the structure of the data}
+#structure of the data
 str(year_trip)
-glimpse(year_trip)
 ```
+
+Evaluation of the variables. Reference of variables are as follow:
+
+* ride_id: The unique ID to describe each ride.
+* rideable_type: It refers to the type of the bike used in the ride.
+* started_at: This variable refers to the starting time of the ride
+* ended_at: This variable refers to the ending time of the ride. 
+* start_station_name: This column contains name of the starting station, if provided.
+* start_station_id : This column contains the unique ID that is associated with the starting station.
+* end_station_name: This column contains name of the ending station, if provided. 
+* end_station_id : This column contains the unique ID that is associated with the ending station.
+* start_lat, start_lng, end_lat, end_lng: These variables refer to the coordinates of the starting and ending locations of the rides.
+* member_casual: This variable tells us whether the rider is an annual member or a casual member.
+
 
 Statistical evaluation of the merged data
 ```{r statistical evaluation of the merged data}
 skim_without_charts(year_trip)
-summary(year_trip)
+
 ```
+
+Based on the statistical evaluation, there are missing values in starting and ending station name/station ID. 
+This missing values will be further assessed why they are missing.
 
 Check for duplicates in the merged dataset
 ```{r check unique rows}
 nrow(year_trip)
 nrow(distinct(year_trip))
 ```
+There is no duplicate row caused by data merging.
+
 
 #### Transforming data
 Removing empty rows that have no use of analysis
@@ -82,33 +101,41 @@ Removing empty rows that have no use of analysis
 ```{r removing empty rows if there is any, message=FALSE, warning=FALSE}
 year_trip_2 <- year_trip %>%
   remove_empty(which = c("cols", "rows"))
+
+#remove_empty is used when to remove all rows from a dataframe/matrix that are composed entirely of NA values.
 ```
 
-Creating additional columns that are based on the start time of bike riding. This will help to see whether there are particular riding patterns in specific month, day, or weekdays. 
+Creating additional columns that are based on the starting time of the rides by breaking down into month, day, weekday, and hour. This information will allow us to assess how and when riders use the bikes in terms of month, weekday, and time of the day.
 ```{r Creating additional columns based on start time}
 year_trip_3 <- year_trip_2 %>%
   mutate(
     start_hour = hour(started_at),
     start_day = day(started_at),
-    start_month = month(started_at, label = T, abbr = T),
+    start_month = month(started_at, label = TRUE, abbr = TRUE),
     start_year = year(started_at),
-    start_weekday = wday(started_at, label = T, abbr = T),
+    start_weekday = wday(started_at, label = TRUE, abbr = TRUE),
     trip_duration = difftime(ended_at, started_at, units = "mins")
   )
+# mutate() adds new variables while preserving existing ones. transmute() adds new variables and drops the existing one.
+
+# label = TRUE will display the month as a character string such as "January" while "FALSE" will display the month as a number. This logic is applied to wday function.
+
+# difftime creates time interval for date-time or date objects.
 
 year_trip_3$trip_duration <- round(year_trip_3$trip_duration, 2)
 
 summary(year_trip_3)
 ```
 
-Renaming the column names and variable names for ease of reference
+Renaming the column names for ease of reference
 ```{r rename coluns}
 year_trip_3 <- year_trip_3 %>%
   rename(bikes = rideable_type,
          user_type = member_casual)
 ```
 
-Change the user_type and bike type to a factor format because this can be easier for categorization
+
+Change the user_type and bike type to a factor format for better categorization
 ```{r reformation of the dataset and factor the format}
 unique(year_trip_3$bikes) # determine what are the unique values of the bike type
 year_trip_3 <- year_trip_3 %>%
@@ -122,38 +149,77 @@ year_trip_3 <- year_trip_3 %>%
     user_type = as_factor(user_type) # factor the user type
   )
 
-summary(year_trip_3)
+skim_without_charts(year_trip_3)
 ```
 
-Since the trip duration range from -58 mins to 55944 mins, there must be either typo errors during data entry or bikes not returning to the station properly. In order to have an idea what the distribution may look like of the trip duration. Distribution plot is employed. 
+Based on the above evaluation, the trip duration range from -58 mins to 55944 mins. It is certain that there are errors during data entry or the bikes are not returning to the station properly because the trip duration cannot be negative. Also for the significantly extended ride time, we will have to further investigate whether this is valid or is likely an error. To visualize how the trip duration may be distributed, I plot the trip duration in density map. 
+
+
 ```{r explore the distribution of trip_duration, warning = FALSE}
+
+# change the dfft format column to numeric value for the ease of calculation
+year_trip_3$trip_duration <- as.numeric(year_trip_3$trip_duration)
+year_trip_3$trip_duration <- round(year_trip_3$trip_duration, 2) 
+# round up the numbers
+
 year_trip_3 %>%
   ggplot(aes(x=trip_duration)) +
-  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+  geom_density(fill="#69b3a2", color= "black", alpha=0.8) +
+  labs(title = "Density Map of Trip Duration", 
+       x = "Trip Duration", 
+       y = "Density") +
+  theme_bw() +
+  theme(
+    title = element_text(face = "bold", color = "black"),
+    axis.title = element_text(face = "bold", color = "black"),
+    panel.grid.major.x = element_blank()
+  )
+# aesthetic elements are made referenced to https://stackoverflow.com/questions/53450097/r-ggplot-labssubtitle-and-caption-not-working
+
+
+# The distribution is significantly skewed to the right, so it is worth taking a closer look by limiting range of trip_duration
 
 year_trip_3 %>%
-  filter(trip_duration < 500) %>%
-  ggplot(aes(x=trip_duration, fill = user_type)) +
-  geom_density(alpha=0.3) 
+  filter(trip_duration < 240) %>%
+  ggplot() +
+  geom_density(mapping = aes(x=trip_duration, fill = user_type), alpha=0.3) +
+  labs(title = "Density Map of Trip Duration", subtitle = "Trip Duration less than Four Hours", 
+       x = "Trip Duration", 
+       y = "Density", 
+       fill = "Member Type") +
+  theme_bw() +
+  theme(
+    title = element_text(face = "bold", color = "black"),
+    axis.title = element_text(face = "bold", color = "black"),
+    panel.grid.major.x = element_blank()
+  )
+
+# arguments in the labs can be separated by ","
 # alpha is used to illustrate the graph with transparent color.
+# When to use mapping syntax - https://www.geeksforgeeks.org/how-to-fix-error-mapping-must-be-created-by-aes-in-r/
 ```
 
-The distribution is very much skewed to the right. It is worth to check the percentile of the trip duration and see how the data is distributed. 
+Given the significantly skewing density map, let's further understand the percentile of the trip duration and see how the data is distributed. 
+
 ```{r check out the percentile of the trip duration distribution}
 quantile(year_trip_3$trip_duration, c(0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99)) 
 # the list indicates the percentile we wish to check from 5% to 99%. 
 ```
 
-After investigating the distribution, it is safe to assume that almost all of the people would return the bike on the same day as the 99% percentile stands at 2 hours. In this case, I believe it is rather reasonable to assume that data that exceeds more than a day may occur due to problematic bike return. Therefore, we will filter out a small number of trip duration data.
+After investigating the distribution, it is safe to assume that almost all of the people would return the bike on the same day as the 99% percentile stands at 2 hours. In this case, it is safe to assume that data that exceeds more than a day may occur due to late bike return. Therefore, we will filter out a small number of trip duration data without affecting us to understand behaviors of the two user groups.
+
 ```{r filter out unreasonable data occured trip duration}
 year_trip_3 <- year_trip_3 %>%
   filter(trip_duration >0 & trip_duration < 1440)
+# use "&" add filter condition together.
 
 skim_without_charts(year_trip_3)
 ```
 
 #### Data cleaning review
-After filtering, here is the quick summary of the variables. 
+
+After filtering, below is the quick summary of the variables.
+
 * The remaining observations are 5,752,713. 
 * Classic bike dominates with classic - 3,199,735, electric - 2,263,000, docked - 289,978.
 * Annual member accounts for more than 50% of the users during this period, member - 3,220,405, casual - 2,532,308 
