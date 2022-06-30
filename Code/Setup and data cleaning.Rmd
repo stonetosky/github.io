@@ -7,16 +7,17 @@ output: html_document
 
 ## Capstone Project: Cyclist
 
-### Enviroment setup
+### Enviroment and Data Setup
 Set up libraries for this project
-```{r libraries setup, message=TRUE, warning=FALSE}
+```{r libraries setup, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(skimr)
 library(ggplot2)
 library(lubridate)
 library(janitor)
 library(scales) # To use the unit_format function
-library(mapview)
+library(mapview) # For interactive map 
+library(leafsync)
 ```
 
 
