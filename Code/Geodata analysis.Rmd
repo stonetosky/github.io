@@ -1,0 +1,131 @@
+#### Geodata Analysis
+Moving forward, we will check out the popular routes and the details of them. 
+
+Let's check out the data availability as there are missing data in the station input
+```{r check for completion of the data}
+skim_without_charts(year_trip_3$start_station_name)
+skim_without_charts(year_trip_3$end_station_name)
+```
+
+```{r Drop rows with empty station information}
+year_trip_drna <- subset(year_trip_3, !(is.na(year_trip_3$start_station_name) | is.na(year_trip_3$end_station_name)))
+# drop rows with multiple condition
+
+skim_without_charts(year_trip_drna)
+
+```
+
+Now the data of station is cleaned and there is no missing data, we will start with the most popular starting station and ending station. 
+```{r calculate the popular start and end stations}
+# popular start stations
+start_stat_popular <- year_trip_drna %>%
+  group_by(start_station_name) %>%
+  summarize(No_of_rides = n()) %>%
+  arrange(desc(No_of_rides))
+
+head(start_stat_popular)
+
+# popular end stations
+end_stat_popular <- year_trip_drna %>%
+  group_by(end_station_name) %>%
+  summarize(No_of_rides = n()) %>%
+  arrange(desc(No_of_rides))
+
+head(end_stat_popular)
+```
+
+We will also see which route is the most popular one. 
+
+```{r Calculate the popular route}
+year_trip_drna <- year_trip_drna %>%
+  unite("Route", start_station_name, end_station_name, sep = " to ", remove = FALSE) # unite can be directly use to insert a column if we were to concatenate two columns. remove=FALSE is needed if we do not wish to remove the input columns.
+
+head(year_trip_drna)
+
+# count the routes
+year_trip_drna %>%
+  count(Route, sort = TRUE)
+
+```
+
+Visualize the top ten route
+```{r Top 10 route}
+Top10_Route <- year_trip_drna %>%
+  group_by(Route) %>%
+  summarize(No_of_rides = n()) %>%
+  arrange(desc(No_of_rides))
+
+Top10_Route
+
+Top10_Route[1:10,] %>% 
+  ggplot() + geom_col(mapping = aes(x = Route, y = No_of_rides, position = "dodge"), fill = "darkcyan", color = "black") +
+  coord_flip() +
+  labs(title = "Top 10 Route",
+       x = "Route",
+       y = "Popularity in terms of No. of Rides") +
+  geom_text(aes(x = Route, y = No_of_rides, label = No_of_rides), hjust = 1) +
+  theme_bw()
+# flip the graph to horizontal layout.
+# why add the comma for Top10_Route[1:10,]? because it has two columns and the reason you need to add a comma is because R uses the following syntax for subsetting data frames: data[rows you want, columns you want] If you only type Top10_Route[1:10], then you’re telling R to return the first 10 rows, but you’re not telling R which columns to return. By using Top10_Route[1:10,], you’re telling R to return the first 10 rows and all of the columns in the data frame. 
+```
+
+Mapview of the top 100 popular starting stations
+```{r Top 100 Start station Map}
+Top_start_stat <- year_trip_drna %>%
+  group_by(start_station_name, start_lat, start_lng, user_type) %>%
+  summarize(no_of_rides = n()) %>%
+  arrange(-no_of_rides)
+
+Start_station <- Top_start_stat[1:100,] %>%
+  mapview(
+    xcol = "start_lng", 
+        ycol = "start_lat",
+        cex = "no_of_rides",
+        alpha = 0.9, 
+        crs = 4269,
+        color = "green",
+        grid = F, 
+        legend = T,
+        layer.name = "100 Most Popular Start Stations"
+  )
+
+Start_station
+  
+```
+
+Mapview of the top 100 popular destination stations
+```{r Top 100 Destination station map}
+Top_end_stat <- year_trip_drna %>%
+  group_by(end_station_name, end_lat, end_lng, user_type) %>%
+  summarize(no_of_rides = n()) %>%
+  arrange(-no_of_rides)
+
+Destination_station <- Top_end_stat[1:100,] %>%
+  mapview(
+    xcol = "end_lng", 
+        ycol = "end_lat",
+        cex = "no_of_rides",
+        alpha = 0.9, 
+        crs = 4269,
+        color = "#8b0000",
+        grid = F, 
+        legend = T,
+        layer.name = "100 Most Popular Destination Stations"
+  )
+
+Destination_station
+```
+
+```{r viewing maps side by side}
+sync (Start_station, Destination_station)
+# reference is made from https://www.infoworld.com/article/3644848/astonishingly-easy-mapping-in-r-with-mapview.html
+```
+
+```{r Showing the maps side by side}
+library(leaflet.extras2)
+Start_station | Destination_station
+```
+
+
+  
+  
