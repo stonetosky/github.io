@@ -1,0 +1,282 @@
+### Deep dive into the riders and riding pattern
+
+Visualizing the bike type and user type
+```{r Visualization of bike and user type}
+min_ym <- min(format(year_trip_3$started_at, "%Y-%m"))
+max_ym <- max(format(year_trip_3$started_at, "%Y-%m"))
+
+ggplot(data = year_trip_3) +
+  geom_bar(mapping = aes(x = bikes, fill = bikes)) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Bike Cateogrization Comparison",
+       subtitle = paste0("Data from ", min_ym, " to ", max_ym),
+       x = "Bike Type",
+       y = "Number of Rides",
+       fill = "Bike Type") +
+  expand_limits(x = c(0, NA), y = c(0, NA)) +
+  scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) +
+  theme_bw() 
+# paste0 is used to concatenate character together [link](https://r-lang.com/paste0-function-in-r-with-example/)
+# adding labels to bar chart [Link](https://r-graphics.org/recipe-bar-graph-labels)
+
+ggplot(data = year_trip_3) +
+  geom_bar(mapping = aes(x = user_type, fill = user_type)) + 
+  labs(title = "User Type Comparison") +
+  labs(subtitle = paste0("Data from ", min_ym, " to ", max_ym),
+       x = "User Type",
+       y = "Number of Rides",
+       fill = "Member Type") +
+  expand_limits(x = c(0, NA), y = c(0, NA)) +
+  scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) +
+  theme_bw()
+# theme setting can be referred to [Link](https://ggplot2.tidyverse.org/reference/ggtheme.html)
+# reducing the scale to properly showing the y axis
+```
+
+Find trip duration statistics among different user types
+```{r Trip duration among user types}
+
+summary(year_trip_3$trip_duration)
+
+Trip_summary <- year_trip_3 %>%
+  group_by(user_type) %>%
+  summarize(min_trip = min(trip_duration), avg_trip = mean(trip_duration), median_trip = median(trip_duration), max_trip = max(trip_duration))
+
+print(Trip_summary)
+```
+
+Why casual member appears to having a longer trip time per ride? Perhaps this is due to distance or speed? 
+Although we do not have data in terms of speed or distance, we can assess their behaviors by the bike type they use or when they use the bikes. 
+
+What types of bike do users use, breakdown  by user type?
+```{r user usage in bikes}
+year_trip_3 %>%
+  count(user_type, bikes, sort = TRUE)
+# Count frequency of two columns. Reference from [Link](https://dplyr.tidyverse.org/reference/count.html)
+
+ggplot(data = year_trip_3) +
+  geom_bar(mapping = aes(x = bikes, fill = user_type)) + 
+  facet_wrap(~user_type) +
+  scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) +
+  labs(title = "Bike Type Preference", subtitle = "Comparison between casual member and annual member",
+       x = "Bike Type",
+       y = "Number of Rides",
+       fill = "Member Type")
+```
+
+Which weekday appears the most traffic, breakdown by user type?
+Casual members are weekend riders and therefore they bike for leisure. The no. of rides for annual members concentrate in the weekdays. That is, they use bike for daily transit for works or schools. 
+```{r Bike usage across the week}
+# find the total rides across the week
+year_trip_3 %>%
+  count(start_weekday, sort = TRUE)
+
+# Casual members' total rides in weekends
+casual_weekend <- nrow(filter(year_trip_3, user_type == "casual" & (start_weekday == "Sat" | start_weekday == "Sun")))
+print (paste0("The total weekend rides of casual members is ", casual_weekend)) # printing string and variable uses paste0 in the front or equivalent, we can also use cat("string", variable)
+
+# casual member's total rides in weekdays
+casual_weekdays <- nrow(filter(year_trip_3, user_type == "casual" & !(start_weekday == "Sat" | start_weekday == "Sun")))
+print (paste0("The total weekday rides of casual members is ", casual_weekdays)) # printing string and variable 
+
+
+# annual members' total rides in weekend
+member_weekend <- year_trip_3 %>%
+  filter(user_type == "member" & (start_weekday == "Sat" | start_weekday == "Sun")) %>%
+  nrow()
+print (paste0("The total weekend rides of annual members is ", member_weekend))
+
+# annual members' total rides in weekdays
+member_weekdays <- year_trip_3 %>%
+  filter(user_type == "member" & !(start_weekday == "Sat" | start_weekday == "Sun")) %>%
+  nrow()
+print (paste0("The total weekday rides of annual members is ", member_weekdays))
+
+
+# Total rides in different weekdays across user types
+ggplot(data = year_trip_3) +
+  geom_bar(mapping = aes(x = start_weekday, fill = user_type)) +
+  facet_wrap(~user_type) +
+  scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) +
+  labs (title = "Biking Rides across the Week",
+        subtitle = "Comparison across casual member and annual member",
+        x = "Day of the week",
+        y = "No. of rides",
+        fill = "Member Type") +
+  theme_bw()
+```
+
+Which month experience the most traffic, breakdown by user type?
+
+```{r Bike usage across the year}
+
+# visualize number of rides in each month
+year_trip_3 %>%
+  count(start_month, sort = TRUE)
+
+ggplot(data = year_trip_3) +
+  geom_bar(mapping = aes(x = start_month, fill = user_type)) +
+  facet_wrap(~user_type) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  theme_bw() +
+    labs(title = "Bike Usage across the Year",
+       subtitle = "Comparison between annual member and casual member",
+       x = "Month",
+       y = "No. of rides",
+       Fill = "Member Type") +
+  scale_y_continuous(label = unit_format(unit = "M", scale = 1e-6))
+
+# visualize average trip duration across each month
+year_trip_3 %>%
+  group_by(start_month, user_type) %>%
+  summarize(avg_trip_duration = mean(trip_duration))%>%
+  ggplot() + geom_col(mapping = aes(x = start_month, y = avg_trip_duration, fill = user_type), position = "dodge") +
+  labs(title = "Bike Usage across the Year",
+       subtitle = "Comparison between annual member and casual member",
+       x = "Month",
+       y = "No. of rides",
+       Fill = "Member Type") +
+  scale_y_continuous(label = unit_format(unit = "M", scale = 1e-6)) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  theme_bw()
+
+# visualize total trip duration across each month
+year_trip_3 %>%
+  group_by(start_month, user_type) %>%
+  summarize(total_trip_duration = sum(trip_duration))%>%
+  ggplot() + geom_col(mapping = aes(x = start_month, y = total_trip_duration, fill = user_type), position = "dodge") +
+    labs(title = "Bike Usage across the Year",
+       subtitle = "Comparison between annual member and casual member",
+       x = "Month",
+       y = "No. of rides",
+       Fill = "Member Type") +
+  scale_y_continuous(label = unit_format(unit = "M", scale = 1e-6)) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  theme_bw()
+```
+
+What day time experience the most traffic, breakdown by user type?
+Peak hour of bike usage occurs during time when people are going to work or school as well as off the work. 
+```{r Bike usage across the day}
+year_trip_3 %>%
+  count(start_hour, sort = TRUE)
+
+ggplot(data = year_trip_3) +
+  geom_bar(mapping = aes(x = start_hour, fill = user_type)) +
+  facet_wrap(~user_type) +
+  labs(title = "Bike Usage across the Day",
+       subtitle = "Comparison between annual member and casual member",
+       x = "Time",
+       y = "No. of rides",
+       Fill = "Member Type") +
+  scale_y_continuous(label = unit_format(unit = "M", scale = 1e-6)) +
+  theme_bw()
+```
+
+Let's see how the start_hour pattern may differ if we incorporate the weekday. I expect to see annual member might have a heavy usage during the weekday peak hours. 
+
+```{r }
+options(repr.plot.width =12, repr.plot.height =12) 
+# to be further study how to display the graph with larger size, reference made from [LINK](https://www.geeksforgeeks.org/how-to-resize-a-graph-in-ggplot2-in-r/)
+
+ggplot(year_trip_3) +
+  geom_bar(mapping = aes(x = start_hour, fill = user_type)) +
+  facet_grid(user_type~start_weekday) +
+  scale_y_continuous(label = unit_format(unit = "K", scale = 1e-3)) +
+  labs(title = "Bike Usage across the Day",
+       subtitle = "Comparison among user type breaking down by weekday",
+       x = "Time",
+       y = "No. of rides",
+       fill = "Member Type") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  theme_bw()
+# Here it would need to use facet_grid instead of facet_wrap. Facet_wrap shows too little image and the illustration is not easy to understand.
+
+```
+
+Let's also see how trip duration may differ within the week. I expect to see that the trip duration might be longer during the weekend because of the leisure use by casual members. 
+
+```{r}
+year_trip_3 %>%
+  group_by(start_weekday) %>%
+  summarize(avg_trip_duration = mean(trip_duration), median_trip = median(trip_duration))
+
+median_trip_duration <- year_trip_3 %>%
+  group_by(start_weekday) %>%
+  summarize(median_trip = median(trip_duration))
+  
+ggplot(data = median_trip_duration) +
+  geom_bar(stat = "identity", mapping = aes(x = start_weekday, y = median_trip), fill="darkcyan", colour="black") +
+  labs (title = "Median Trip Duration",
+        subtitle = "Comparison across the week",
+        x = "Weekday",
+        y = "Median Trip Duration") +
+  scale_y_continuous(limits = c(0, 15)) +
+  geom_text(aes(x = start_weekday, y = median_trip, label = median_trip), vjust = -1) +
+  theme_bw()
+# It is important to understand geom_bar in combination with stat = "identity". The default function of geom_bar is to count/aggregate no. of rows so it doesn't take y value. However, if we want to input a y value instead of aggregation, we need to use the stat = "identity" to tell ggplot2 that we would skip the aggregation and we provide you the y value. This behavior mirrors the geom_col()
+  
+```
+
+Exploration of the bike type pattern across months, breakdown by types of users 
+```{r}
+# Casual members ridership
+year_trip_3 %>%
+  filter(user_type == "casual") %>%
+  group_by(bikes, start_month) %>%
+  summarize(number_of_rides = n()) %>%
+  ggplot() + geom_col(mapping = aes(x = start_month, y = number_of_rides, fill = bikes)) +
+  labs(title = "Number of Rides across the Year of Casual Member",
+       subtitle = "Breakdown by bike types",
+       x = "Month",
+       y = "No. of Rides",
+       fill = "Bike Type") +
+  scale_y_continuous(label = unit_format(unit = "K", scale = 1e-3)) +
+  theme_bw()
+
+year_trip_3 %>%
+  filter(user_type == "casual") %>%
+  group_by(bikes, start_month) %>%
+  summarize(number_of_rides = n()) %>% 
+  ggplot() + geom_col(mapping = aes(x = start_month, y = number_of_rides, fill = bikes), position = "dodge") + theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  labs(title = "Number of Rides across the Year of Casual Member",
+       subtitle = "Breakdown by bike types",
+       x = "Month",
+       y = "No. of Rides",
+       fill = "Bike Type") +
+  scale_y_continuous(label = unit_format(unit = "K", scale = 1e-3)) +
+  theme_bw()
+
+# why do we have to use n() here instead of count()? When using count(), wrong message pop out as "no applicable method for "count" applied to an object of class "NULL". count is a dplyr verb so it can be used in a pipeline df %>% count. It outputs a data frame. n() is not a dplyr verb. It can only be used inside another dplyr verb such as inside summarize: df %>% summarize(n = n()) It outputs a numeric scalar.
+
+# Also, when adding the position = "dodge", the bar chart no longer displays as a stacked bar but in multiple columns.
+
+
+# Annual member ridership
+year_trip_3 %>%
+  filter(user_type == "member") %>%
+  group_by(bikes, start_month) %>%
+  summarize(number_of_rides = n()) %>%
+  ggplot() + geom_col(mapping = aes(x = start_month, y = number_of_rides, fill = bikes)) +
+  labs(title = "Number of Rides across the Year of Annual Member",
+       subtitle = "Breakdown by bike types",
+       x = "Month",
+       y = "No. of Rides",
+       fill = "Bike Type") +
+  scale_y_continuous(label = unit_format(unit = "K", scale = 1e-3)) +
+  theme_bw()
+
+year_trip_3 %>%
+  filter(user_type == "member") %>%
+  group_by(bikes, start_month) %>%
+  summarize(number_of_rides = n()) %>% 
+  ggplot() + geom_col(mapping = aes(x = start_month, y = number_of_rides, fill = bikes), position = "dodge") + theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  labs(title = "Number of Rides across the Year of Annual Member",
+       subtitle = "Breakdown by bike types",
+       x = "Month",
+       y = "No. of Rides",
+       fill = "Bike Type") +
+  scale_y_continuous(label = unit_format(unit = "K", scale = 1e-3)) +
+  theme_bw()
+```
+
