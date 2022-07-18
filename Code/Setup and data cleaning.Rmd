@@ -94,8 +94,6 @@ nrow(distinct(year_trip))
 ```
 There is no duplicate row caused by data merging.
 
-
-#### Transforming data
 Removing empty rows that have no use of analysis
 
 ```{r removing empty rows if there is any, message=FALSE, warning=FALSE}
